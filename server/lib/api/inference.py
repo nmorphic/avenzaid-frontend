@@ -4,7 +4,7 @@ import time
 import threading
 
 from .response_utils import create_response_message
-from ..inference import InferenceRequest, InferenceResult, InferenceRequest
+from ..inference import InferenceRequest, InferenceResult
 from ..sse import Message
 
 from concurrent.futures import ThreadPoolExecutor

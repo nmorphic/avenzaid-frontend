@@ -1,7 +1,5 @@
-import anthropic
 import cachetools
 import math
-import openai
 import os
 import json
 import requests
@@ -10,11 +8,11 @@ import urllib
 import traceback
 import logging
 
-from aleph_alpha_client import Client as aleph_client, CompletionRequest, Prompt
+# from aleph_alpha_client import Client as aleph_client, CompletionRequest, Prompt
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Callable, Union
-from .huggingface.hf import HFInference
+# from .huggingface.hf import HFInference
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -130,7 +128,7 @@ class InferenceAnnouncer:
             self.cancel_cache[uuid] = True      
    
 class InferenceManager:
-    def __init__(self, sse_topic):
+    def __init__(self, sse_topic, llama_model_path):
         self.announcer = InferenceAnnouncer(sse_topic)
 
     def __error_handler__(self, inference_fn: InferenceFunction, provider_details: ProviderDetails, inference_request: InferenceRequest):
@@ -158,27 +156,6 @@ class InferenceManager:
 
         try:
             inference_fn(provider_details, inference_request)
-        except openai.error.Timeout as e:
-            infer_result.token = f"[ERROR] OpenAI API request timed out: {e}"
-            logger.error(f"OpenAI API request timed out: {e}")
-        except openai.error.APIError as e:
-            infer_result.token = f"[ERROR] OpenAI API returned an API Error: {e}"
-            logger.error(f"OpenAI API returned an API Error: {e}")
-        except openai.error.APIConnectionError as e:
-            infer_result.token = f"[ERROR] OpenAI API request failed to connect: {e}"
-            logger.error(f"OpenAI API request failed to connect: {e}")
-        except openai.error.InvalidRequestError as e:
-            infer_result.token = f"[ERROR] OpenAI API request was invalid: {e}"
-            logger.error(f"OpenAI API request was invalid: {e}")
-        except openai.error.AuthenticationError as e:
-            infer_result.token = f"[ERROR] OpenAI API request was not authorized: {e}"
-            logger.error(f"OpenAI API request was not authorized: {e}")
-        except openai.error.PermissionError as e:
-            infer_result.token = f"[ERROR] OpenAI API request was not permitted: {e}"
-            logger.error(f"OpenAI API request was not permitted: {e}")
-        except openai.error.RateLimitError as e:
-            infer_result.token = f"[ERROR] OpenAI API request exceeded rate limit: {e}"
-            logger.error(f"OpenAI API request exceeded rate limit: {e}")
         except requests.exceptions.RequestException as e:
             logging.error(f"RequestException: {e}")
             infer_result.token = f"[ERROR] No response from {infer_result.model_provider } after sixty seconds"
@@ -254,6 +231,53 @@ class InferenceManager:
             if not self.announcer.announce(infer_response, event="infer"):
                 cancelled = True
                 logger.info(f"Cancelled inference for {inference_request.uuid} - {inference_request.model_name}")
+
+    def __llama_cpp_text_generation__(self, provider_details: ProviderDetails, inference_request: InferenceRequest):
+        with requests.post("http://127.0.0.1:8080/completion",
+                           headers={
+                               #"Authorization": f"Bearer {provider_details.api_key}",
+                               "Content-Type": "application/json",
+                           },
+                           data=json.dumps({
+                               "prompt": inference_request.prompt,
+                               "temperature": float(inference_request.model_parameters['temperature']),
+                               "top_p": float(inference_request.model_parameters['topP']),
+                               "top_k": int(inference_request.model_parameters['topK']),
+                               "stop": inference_request.model_parameters['stopSequences'],
+                               "frequency_penalty": float(inference_request.model_parameters['frequencyPenalty']),
+                               "presence_penalty": float(inference_request.model_parameters['presencePenalty']),
+                               "n_predict": int(inference_request.model_parameters['maximumLength']),
+                               "stream": True,
+                           }),
+                           stream=True
+                           ) as response:
+            if response.status_code != 200:
+                raise Exception(f"Request failed: {response.status_code} {response.reason}")
+
+            cancelled = False
+            for token in response.iter_lines():
+                token = token.decode('utf-8')
+                if len(token) == 0:
+                    continue
+                token_json = json.loads(token[6:])
+                if cancelled: continue
+
+                if not self.announcer.announce(InferenceResult(
+                        uuid=inference_request.uuid,
+                        model_name=inference_request.model_name,
+                        model_tag=inference_request.model_tag,
+                        model_provider=inference_request.model_provider,
+                        token=token_json['content'],
+                        probability=None,  # token_json['likelihood']
+                        top_n_distribution=None
+                ), event="infer"):
+                    cancelled = True
+                    logger.info(f"Cancelled inference for {inference_request.uuid} - {inference_request.model_name}")
+
+    def llama_cpp_text_generation(self, provider_details: ProviderDetails, inference_request: InferenceRequest):
+        # TODO: Add a meta field to the inference so we know when a model is chat vs text
+        # Currently, only chat functionality by default
+        self.__error_handler__(self.__llama_cpp_text_generation__, provider_details, inference_request)
 
     def __openai_text_generation__(self, provider_details: ProviderDetails, inference_request: InferenceRequest):
         openai.api_key = provider_details.api_key

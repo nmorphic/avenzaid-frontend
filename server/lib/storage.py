@@ -11,15 +11,15 @@ from typing import List, Dict, Any
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-config_dir = os.environ.get('XDG_CONFIG_HOME')
-if not config_dir:
-    if os.name == 'nt':  # Windows
-        config_dir = os.environ.get('APPDATA')
-    else:  # Linux/Unix
-        config_dir = os.path.expanduser('~/.config')
-
-APP_DIR = os.path.join(config_dir, 'openplayground')
-os.makedirs(APP_DIR, exist_ok=True)
+# config_dir = os.environ.get('XDG_CONFIG_HOME')
+# if not config_dir:
+#     if os.name == 'nt':  # Windows
+#         config_dir = os.environ.get('APPDATA')
+#     else:  # Linux/Unix
+#         config_dir = os.path.expanduser('~/.config')
+# 
+# APP_DIR = os.path.join(config_dir, 'openplayground')
+# os.makedirs(APP_DIR, exist_ok=True)
 
 class Storage:
     def __init__(self, models_json_path: str = None, env_file_path: str = None):
@@ -60,7 +60,6 @@ class Storage:
             )
 
             self.models.extend(models)
-
         for event in [
             EVENTS.MODEL_ADDED,
             EVENTS.MODEL_REMOVED,
@@ -72,62 +71,64 @@ class Storage:
 
     def __initialize_config__(self, models_json_path: str = None):
         if models_json_path is None:
-            models_json_path = os.path.join(APP_DIR, 'models.json')
-
-        original_models_json = None
-        if not pkg_resources.is_resource('server', 'models.json'):
-            original_models_json = open('./models.json').read()
-        else:
-            original_models_json = pkg_resources.read_text('server', 'models.json')
-
-        if not os.path.exists(os.path.join(APP_DIR, 'models.json')):
-            with open(os.path.join(APP_DIR, 'models.json'), 'w') as f:
-                f.write(original_models_json)
-        else:
-            original_models_json = json.loads(original_models_json)
-
-            with open(os.path.join(APP_DIR, 'models.json'), 'r') as f:
-                cached_models_json = json.load(f)
- 
-                cached_providers = cached_models_json.keys()
-                original_providers = original_models_json.keys()
-
-                provider_in_original_not_cache = [provider for provider in original_providers if provider not in cached_providers]
-
-                for provider in provider_in_original_not_cache:
-                    cached_models_json[provider] = original_models_json[provider]
-                
-                cached_providers = cached_models_json.keys()
-
-                for cached_provider in cached_providers:
-                    cached_provider_keys = cached_models_json[cached_provider].keys()
-                    original_provider_keys = original_models_json[cached_provider].keys()
-
-                    #keys in cache but not in original
-                    cache_keys_missing = [key for key in cached_provider_keys if key not in original_provider_keys]
-                    #keys in original but not in cache
-                    missing_original_keys = [key for key in original_provider_keys if key not in cached_provider_keys]
-
-                    for missing_cached_key in cache_keys_missing:
-                        del cached_models_json[cached_provider][missing_cached_key]
-
-                    for missing_original_key in missing_original_keys:
-                        cached_models_json[cached_provider][missing_original_key] = original_models_json[cached_provider][missing_original_key]
-
-                    cached_provider_models = cached_models_json[cached_provider]['models'].keys()
-                    original_provider_models = original_models_json[cached_provider]['models'].keys()
-
-                    for cached_model in cached_provider_models:
-                        if cached_model not in original_provider_models:
-                            continue
-
-                        cached_model_keys = cached_models_json[cached_provider]['models'][cached_model].keys()
-                        original_model_keys = original_models_json[cached_provider]['models'][cached_model].keys()
-
-                        for original_model_key in original_model_keys:
-                            if original_model_key not in cached_model_keys:
-                                cached_models_json[cached_provider]['models'][cached_model][original_model_key] = original_models_json[cached_provider]['models'][cached_model][original_model_key]
-
+            models_json_path = "./server/models.json"
+#        if models_json_path is None:
+#            models_json_path = os.path.join(APP_DIR, 'models.json')
+#
+#        original_models_json = None
+#        if not pkg_resources.is_resource('server', 'models.json'):
+#            original_models_json = open('./models.json').read()
+#        else:
+#            original_models_json = pkg_resources.read_text('server', 'models.json')
+#
+#        if not os.path.exists(os.path.join(APP_DIR, 'models.json')):
+#            with open(os.path.join(APP_DIR, 'models.json'), 'w') as f:
+#                f.write(original_models_json)
+#        else:
+#            original_models_json = json.loads(original_models_json)
+#
+#            with open(os.path.join(APP_DIR, 'models.json'), 'r') as f:
+#                cached_models_json = json.load(f)
+# 
+#                cached_providers = cached_models_json.keys()
+#                original_providers = original_models_json.keys()
+#
+#                provider_in_original_not_cache = [provider for provider in original_providers if provider not in cached_providers]
+#
+#                for provider in provider_in_original_not_cache:
+#                    cached_models_json[provider] = original_models_json[provider]
+#                
+#                cached_providers = cached_models_json.keys()
+#
+#                for cached_provider in cached_providers:
+#                    cached_provider_keys = cached_models_json[cached_provider].keys()
+#                    original_provider_keys = original_models_json[cached_provider].keys()
+#
+#                    #keys in cache but not in original
+#                    cache_keys_missing = [key for key in cached_provider_keys if key not in original_provider_keys]
+#                    #keys in original but not in cache
+#                    missing_original_keys = [key for key in original_provider_keys if key not in cached_provider_keys]
+#
+#                    for missing_cached_key in cache_keys_missing:
+#                        del cached_models_json[cached_provider][missing_cached_key]
+#
+#                    for missing_original_key in missing_original_keys:
+#                        cached_models_json[cached_provider][missing_original_key] = original_models_json[cached_provider][missing_original_key]
+#
+#                    cached_provider_models = cached_models_json[cached_provider]['models'].keys()
+#                    original_provider_models = original_models_json[cached_provider]['models'].keys()
+#
+#                    for cached_model in cached_provider_models:
+#                        if cached_model not in original_provider_models:
+#                            continue
+#
+#                        cached_model_keys = cached_models_json[cached_provider]['models'][cached_model].keys()
+#                        original_model_keys = original_models_json[cached_provider]['models'][cached_model].keys()
+#
+#                        for original_model_key in original_model_keys:
+#                            if original_model_key not in cached_model_keys:
+#                                cached_models_json[cached_provider]['models'][cached_model][original_model_key] = original_models_json[cached_provider]['models'][cached_model][original_model_key]
+#
         with open(models_json_path, 'r') as f:
             return json.load(f), models_json_path
 
@@ -138,7 +139,11 @@ class Storage:
         return [model for model in self.models if model.enabled]
     
     def get_enabled_models_names(self) -> List[str]:
-        return [model.name for model in self.models if model.enabled]
+        l = []
+        for model in self.models:
+            if model.enabled:
+                l.append(model)
+        return l
 
     def get_enabled_models_by_provider(self) -> Dict[str, List[Model]]:
         models_by_provider = {}

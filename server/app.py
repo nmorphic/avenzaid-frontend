@@ -23,9 +23,6 @@ from server.lib.api import api_bp
 from flask import Flask, g, send_from_directory
 from flask_cors import CORS
 
-from transformers import AutoTokenizer, AutoModel
-from huggingface_hub import hf_hub_download, try_to_load_from_cache, scan_cache_dir, _CACHED_NO_EXIST
-
 # Monkey patching for warnings, for convenience
 def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
     return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
@@ -277,10 +274,11 @@ class GlobalStateManager:
         self.notification_manager = NotificationManager(self.sse_manager.get_topic("notifications"))
 
         self.inference_manager = InferenceManager(
-            self.sse_manager.get_topic("inferences")
+            self.sse_manager.get_topic("inferences"),
+            "./server/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin"
         )
         self.storage = storage
-        self.download_manager = DownloadManager(storage)
+        # self.download_manager = DownloadManager(storage)
 
     def get_storage(self):
         return self.storage
@@ -292,12 +290,14 @@ class GlobalStateManager:
         provider = self.storage.get_provider(inference_request.model_provider)
 
         provider_details = ProviderDetails(
-            api_key=provider.api_key ,
+            api_key=provider.api_key,
             version_key=None
         )
         logger.info(f"Received inference request {inference_request.model_provider}")
 
-        if inference_request.model_provider == "openai":
+        if inference_request.model_provider == "avenzaid":
+            return self.inference_manager.llama_cpp_text_generation(provider_details, inference_request)
+        elif inference_request.model_provider == "openai":
             return self.inference_manager.openai_text_generation(provider_details, inference_request)
         elif inference_request.model_provider == "cohere":
             return self.inference_manager.cohere_text_generation(provider_details, inference_request)
