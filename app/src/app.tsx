@@ -1,5 +1,5 @@
 import React, { useEffect } from "react"
-import {Playground, Compare, Settings} from "./pages"
+import {Playground, Compare, Chat, Settings} from "./pages"
 import {SSE} from "sse.js"
 import {
   EditorState,
@@ -17,7 +17,7 @@ const DEFAULT_PARAMETERS_STATE = {
   temperature: 1.0,
   maximumLength: 200,
   topP: 0.9,
-  topK: 0.0,
+  topK: 0,
   repetitionPenalty: 1.0,
   frequencyPenalty: 0.0,
   presencePenalty: 0.0,
@@ -55,6 +55,12 @@ const DEFAULT_CONTEXTS = {
         selectAllModels: false,
         showParametersTable: false
       }
+    },
+    chat:{
+        history: DEFAULT_HISTORY_STATE,
+        editor: DEFAULT_EDITOR_STATE,
+        modelsState: [],
+        parameters: DEFAULT_PARAMETERS_STATE
     },
   },
   MODELS: [],
@@ -203,7 +209,7 @@ const APIContextWrapper = ({children}) => {
     unsubscribeChatCompletion: (callback) => {
       chatCompletionSubscribers.current = chatCompletionSubscribers.current.filter((cb) => cb !== callback);
     },
-    chatCompletion: createChatCompletionRequest,
+    chatCompletionRequest: createChatCompletionRequest,
   };
   
   const [apiContext, _] = React.useState({
@@ -222,9 +228,9 @@ const APIContextWrapper = ({children}) => {
     return createCompletionRequest(url, payload, textCompletionSubscribers);
   }
   
-  function createChatCompletionRequest(prompt, model) {
+  function createChatCompletionRequest({prompt, models}) {
     const url = "/api/inference/chat/stream";
-    const payload = {prompt, model};
+    const payload = {prompt, models};
     return createCompletionRequest(url, payload, chatCompletionSubscribers);
   }
   
@@ -352,7 +358,7 @@ const PlaygroundContextWrapper = ({page, children}) => {
   const [parametersContext, _setParametersContext] = React.useState(DEFAULT_CONTEXTS.PAGES[page].parameters);
   let [modelsStateContext, _setModelsStateContext] = React.useState(DEFAULT_CONTEXTS.PAGES[page].modelsState);
   const [modelsContext, _setModelsContext] = React.useState(DEFAULT_CONTEXTS.MODELS);
-  const [historyContext, _setHistoryContext] = React.useState(DEFAULT_CONTEXTS.PAGES[page].history);
+  const [historyContext, setHistoryContext] = React.useState(DEFAULT_CONTEXTS.PAGES[page].history);
 
   /* Temporary fix for models that have been purged remotely but are still cached locally */
   for(const {name} of modelsStateContext) {
@@ -503,7 +509,7 @@ const PlaygroundContextWrapper = ({page, children}) => {
       show: (value === undefined || value === null) ? !SETTINGS.pages[page].history.show : value
     }
 
-    _setHistoryContext(_newHistory);
+    setHistoryContext(_newHistory);
 
     SETTINGS.pages[page].history = _newHistory;
     debouncedSettingsSave()
@@ -536,7 +542,7 @@ const PlaygroundContextWrapper = ({page, children}) => {
       current: newEntry
     }
 
-    _setHistoryContext(_newHistory);
+    setHistoryContext(_newHistory);
 
     //console.warn("Adding to history", _newHistory)
     SETTINGS.pages[page].history = _newHistory;
@@ -549,7 +555,7 @@ const PlaygroundContextWrapper = ({page, children}) => {
       entries: SETTINGS.pages[page].history.entries.filter((historyEntry) => historyEntry !== entry)
     }
 
-    _setHistoryContext(_newHistory);
+    setHistoryContext(_newHistory);
 
     SETTINGS.pages[page].history = _newHistory;
     debouncedSettingsSave()
@@ -562,7 +568,7 @@ const PlaygroundContextWrapper = ({page, children}) => {
       current: null
     }
 
-    _setHistoryContext(_newHistory);
+    setHistoryContext(_newHistory);
 
     SETTINGS.pages[page].history = _newHistory;
     debouncedSettingsSave()
@@ -572,7 +578,7 @@ const PlaygroundContextWrapper = ({page, children}) => {
     SETTINGS.pages[page].history.current = entry;
     _setEditorContext(entry.editor);
 
-    _setHistoryContext(SETTINGS.pages[page].history);
+    setHistoryContext(SETTINGS.pages[page].history);
     setParametersContext(entry.parameters);
     setModelsStateContext(entry.modelsState);
   }
@@ -583,8 +589,8 @@ const PlaygroundContextWrapper = ({page, children}) => {
 
   return (
     <HistoryContext.Provider value = {{
-      historyContext, selectHistoryItem,
-      addHistoryEntry, removeHistoryEntry, clearHistory, toggleShowHistory
+      historyContext, setHistoryContext, selectHistoryItem,
+      addHistoryEntry, removeHistoryEntry, clearHistory, toggleShowHistory,
     }}>
       <EditorContext.Provider value = {{editorContext, setEditorContext}}>
         <ParametersContext.Provider value = {{parametersContext, setParametersContext}}>
@@ -621,6 +627,17 @@ function ProviderWithRoutes() {
             <PlaygroundContextWrapper key = "compare" page = "compare">
               <Compare/>
               <Toaster />
+            </PlaygroundContextWrapper>
+          </APIContextWrapper>
+        }
+      />
+
+      <Route
+        path="/chat"
+        element={
+          <APIContextWrapper>
+            <PlaygroundContextWrapper key = "chat" page = "chat">
+              <Chat/>
             </PlaygroundContextWrapper>
           </APIContextWrapper>
         }

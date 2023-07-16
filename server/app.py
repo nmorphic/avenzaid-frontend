@@ -296,7 +296,7 @@ class GlobalStateManager:
         logger.info(f"Received inference request {inference_request.model_provider}")
 
         if inference_request.model_provider == "avenzaid":
-            return self.inference_manager.llama_cpp_text_generation(provider_details, inference_request)
+            return self.inference_manager.llama_cpp_generation(provider_details, inference_request)
         elif inference_request.model_provider == "openai":
             return self.inference_manager.openai_text_generation(provider_details, inference_request)
         elif inference_request.model_provider == "cohere":

@@ -7,7 +7,6 @@
         "enabled": true,
         "status": "ready",
         "capabilities": [
-          "logprobs"
         ],
         "parameters": {
           "temperature": {
