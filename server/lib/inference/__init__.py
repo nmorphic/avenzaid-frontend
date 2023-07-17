@@ -283,11 +283,14 @@ class InferenceManager:
 
     def __llama_cpp_chat_generation__(self, provider_details: ProviderDetails, inference_request: InferenceRequest):
         current_date = datetime.now().strftime("%Y-%m-%d")
+        user_name = "USER"
+        assistant_name = "ASSISTANT"
         system_content = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions."
         context = f"You are avenzaid, a large language model based on open-llama, provided by neomorphic. Answer as concisely as possible. Current date: {current_date}"
         prompt = f"{system_content}\n"
         # prompt += f"ASSISTANT'S RULE: {context}\n"
-        prompt += f"USER: {inference_request.prompt}\n"
+        prompt += f"{user_name}: {inference_request.prompt}\n"
+        dialogue_stop = f"{user_name}:" # if the LLM yields this, the answer is given
         with requests.post("http://127.0.0.1:8080/completion",
                            headers={
                                #"Authorization": f"Bearer {provider_details.api_key}",
@@ -298,7 +301,7 @@ class InferenceManager:
                                "temperature": float(inference_request.model_parameters['temperature']),
                                "top_p": float(inference_request.model_parameters['topP']),
                                "top_k": int(inference_request.model_parameters['topK']),
-                               "stop": inference_request.model_parameters['stopSequences'],
+                               "stop": inference_request.model_parameters['stopSequences'] + [dialogue_stop],
                                "frequency_penalty": float(inference_request.model_parameters['frequencyPenalty']),
                                "presence_penalty": float(inference_request.model_parameters['presencePenalty']),
                                "n_predict": int(inference_request.model_parameters['maximumLength']),
@@ -310,19 +313,26 @@ class InferenceManager:
                 raise Exception(f"Request failed: {response.status_code} {response.reason}")
 
             cancelled = False
+            trimming = True
             for token in response.iter_lines():
                 token = token.decode('utf-8')
                 if len(token) == 0:
                     continue
                 token_json = json.loads(token[6:])
+                token_content = token_json['content']
                 if cancelled: continue
+                if trimming and token_content in f"{assistant_name}:":
+                    print("Caught assistant")
+                    if f"{assistant_name}:".endswith(token_content):
+                        trimming = False
+                    continue
 
                 if not self.announcer.announce(InferenceResult(
                         uuid=inference_request.uuid,
                         model_name=inference_request.model_name,
                         model_tag=inference_request.model_tag,
                         model_provider=inference_request.model_provider,
-                        token=token_json['content'],
+                        token=token_content,
                         probability=None,  # token_json['likelihood']
                         top_n_distribution=None
                 ), event="infer"):
