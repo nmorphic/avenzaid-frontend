@@ -5,7 +5,7 @@ import { FC } from "react"
  }
 
  const Avatar: FC<Props> = ({name}) => {
-   const colors = ["pink", "purple", "red", "yellow", "blue", "gray", "green", "indigo"];
+   const colors = ["pink", "purple", "red", "blue", "gray", "green", "indigo"];
    const hashCode = (s:string) => s.split('').reduce((a,b) => (((a << 5) - a) + b.charCodeAt(0))|0, 0);
    const color = colors[hashCode(name) % colors.length];
    return (

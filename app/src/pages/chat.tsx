@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react"
 import Message from "../components/chat/message"
 import MessageComposer from "../components/chat/message-composer"
 import ScrollContainer from "../components/chat/scroll-container"
+import { Button } from "../components/ui/button"
 import NavBar from "../components/navbar"
 import ParameterSidePanel from "../components/parameters-side-panel"
 import {
@@ -11,12 +12,24 @@ import {
   HistoryContext,
 } from "../app"
 import HistorySidePanel from "../components/ui/history-side-panel"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog"
 import { CustomAlertDialogue } from "../components/ui/alert-dialog"
 
 export interface IMessage {
   author: string
   content: string
 }
+
+const historySidebar = (<HistorySidePanel />)
 
 const parameterSidebar = (
   <ParameterSidePanel showModelDropdown={true} showModelList={false} />
@@ -36,6 +49,7 @@ export default function Chat() {
   const apiContext = useContext(APIContext)
   const [generating, setGenerating] = useState(false)
   const cancel_callback = useRef(null)
+  const [deleteHistoryDialog, setDeleteHistoryDialog] = React.useState<boolean>(false)
   const [dialog, showDialog] = React.useState({
     title: "",
     message: "",
@@ -139,8 +153,8 @@ export default function Chat() {
       <div className="flex flex-grow flex-col font-display min-h-0 min-w-0 ml-5">
         <CustomAlertDialogue dialog={dialog} />
         <div className="flex flex-row space-x-4 flex-grow mr-5 min-h-0 min-w-0">
-          <div className="hidden p-1 grow-0 shrink-0 basis-auto lg:w-[250px] overflow-auto lg:block">
-            <HistorySidePanel />
+          <div className="p-1 grow-0 shrink-0 basis-auto lg:w-[250px] overflow-auto lg:block">
+            {historySidebar}
           </div>
           <div className="flex flex-col grow basis-auto max-w-3xl mx-auto">
             <ScrollContainer>
